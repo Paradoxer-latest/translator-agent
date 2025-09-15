@@ -1,59 +1,63 @@
+import json
 from config import llm
 from langchain.prompts import ChatPromptTemplate
-from agents.memory_store import retrieve_memory
 
 
-def translate_code(
-    js_code,
-    dependencies_with_versions,
-    package_map,
-    project_summary,
-    file_path,
-    target_framework="FastAPI",
-    is_entry=False
-):
+def translate_project(all_js_code, dependencies_with_versions, package_map, structure_map, target_framework="FastAPI"):
     """
-    Translate a single Node.js file to Python using LangChain.
-    Uses vector store memory for context and escapes curly braces safely.
-    file_path is included in prompts and memory retrieval for context.
+    Translate the entire Node.js project to Python in one LLM call.
+    Fully safe against curly braces in code or JSON examples.
+    Returns a dict of {file_path: python_code}.
     """
     dep_list_str = "\n".join([
         f"{dep} (Node.js {ver}) -> {package_map.get(dep, 'unknown')}"
         for dep, ver in dependencies_with_versions.items()
     ])
-    
-    role = "root entry file" if is_entry else f"module file ({file_path})"
 
-    # Retrieve relevant previously translated modules
-    memory_context = retrieve_memory(file_path, k=3)
+    structure_context = "\n".join([f"{js} -> {py}" for js, py in structure_map.items()])
 
-    # Escape curly braces to not conflict with vectorstore parsing
-    safe_project_summary = project_summary.replace("{", "{{").replace("}", "}}")
-    safe_memory_context = memory_context.replace("{", "{{").replace("}", "}}")
+    # JSON example with doubled braces
+    json_example = """
+        {{
+        "models/user.py": "...python code...",
+        "controllers/auth.py": "...python code..."
+        }}
+    """
 
-    # Build prompt with f-string template format
+    # Escape braces in JS code
+    safe_code = all_js_code.replace("{", "{{").replace("}", "}}")
+
+    # Build prompt
     prompt = ChatPromptTemplate.from_messages([
         ("system", f"""
-You are an expert full-stack engineer. Convert Node.js ({role}) to {target_framework} Python code.
+            You are an expert full-stack engineer. Convert this entire Node.js project to {target_framework} Python code.
 
-Rules:
-- Use consistent imports across all files.
-- Use the latest stable APIs of Python libraries.
-- Do NOT use deprecated classes or methods.
-- Node.js dependencies with versions mapped to Python packages:
-{dep_list_str}
+            Rules:
+            - Use the following mapping for Node.js -> Python dependencies:
+            {dep_list_str}
 
-Project summary:
-{safe_project_summary}
+            - Follow this project structure:
+            {structure_context}
 
-Previously translated modules relevant to this file:
-{safe_memory_context}
-"""),
-        ("user", "{js_code}")
-    ], template_format="f-string")  # 🔹 f-string to safely handle {}
+            - Generate consistent imports across all files.
+            - Do NOT invent module names. Only use those in the structure map.
+            - Convert EJS views into Jinja2 templates.
+            - Use latest stable APIs, avoid deprecated libraries.
 
-    # Escape curly braces in the JS code
-    safe_js_code = js_code.replace("{", "{{").replace("}", "}}")
+            Return the result as a JSON dictionary with file paths as keys and Python code as values.
+            Example:
+            {json_example}
+            """),
+        ("user", "{all_js_code}")
+    ], template_format="f-string")  # 🔹 no allow_unused_kwargs
 
-    response = llm.invoke(prompt.format_messages(js_code=safe_js_code))
-    return response.content.strip()
+    # Invoke LLM
+    response = llm.invoke(prompt.format_messages(all_js_code=safe_code))
+
+    # Parse JSON
+    try:
+        files = json.loads(response.content)
+    except Exception as e:
+        raise ValueError(f"LLM did not return valid JSON: {e}\nContent:\n{response.content}")
+
+    return files

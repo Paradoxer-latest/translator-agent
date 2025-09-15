@@ -1,64 +1,82 @@
-# routes/user.py
+from typing import Optional
+from fastapi import APIRouter, Request, Form
 
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
-
-from config.database import get_db
 from controllers.controller import UserGetController, UserPostController
 
 router = APIRouter()
 
-# Controller instances
-user_get_controller = UserGetController()
-user_post_controller = UserPostController()
+UserGetControllerInstance = UserGetController()
+UserPostControllerInstance = UserPostController()
 
-# GET routes
+
+# GET REQUESTS
 @router.get("/signup")
-async def get_signup_page(request: Request, db: Session = Depends(get_db)):
-    return await user_get_controller.getSignUpPage(request, db)
+def get_signup(request: Request):
+    return UserGetControllerInstance.getSignUpPage(request)
 
 
 @router.get("/signin")
-async def get_signin_page(request: Request, db: Session = Depends(get_db)):
-    return await user_get_controller.getSignInPage(request, db)
+def get_signin(request: Request):
+    return UserGetControllerInstance.getSignInPage(request)
 
 
 @router.get("/homepage")
-async def get_homepage(request: Request, db: Session = Depends(get_db)):
-    return await user_get_controller.homePage(request, db)
+def get_homepage(request: Request):
+    return UserGetControllerInstance.homePage(request)
 
 
 @router.get("/signout")
-async def signout(request: Request, db: Session = Depends(get_db)):
-    return await user_get_controller.logoutUser(request, db)
+def signout(request: Request):
+    return UserGetControllerInstance.logoutUser(request)
 
 
 @router.get("/forgot-password")
-async def get_forgot_password(request: Request, db: Session = Depends(get_db)):
-    return await user_get_controller.getForgotPassword(request, db)
+def get_forgot_password(request: Request):
+    return UserGetControllerInstance.getForgotPassword(request)
 
 
 @router.get("/change-password")
-async def get_change_password(request: Request, db: Session = Depends(get_db)):
-    return await user_get_controller.getChangePassword(request, db)
+def get_change_password(request: Request):
+    return UserGetControllerInstance.getChangePassword(request)
 
 
-# POST routes
+# POST REQUESTS
 @router.post("/signup")
-async def signup(request: Request, db: Session = Depends(get_db)):
-    return await user_post_controller.createUser(request, db)
+async def post_signup(
+    request: Request,
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    cpassword: str = Form(...),
+):
+    return await UserPostControllerInstance.createUser(
+        request, username=username, email=email, password=password, cpassword=cpassword
+    )
 
 
 @router.post("/signin")
-async def signin(request: Request, db: Session = Depends(get_db)):
-    return await user_post_controller.signInUser(request, db)
+async def post_signin(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    g_recaptcha_response: Optional[str] = Form(None, alias="g-recaptcha-response"),
+):
+    return await UserPostControllerInstance.signInUser(
+        request, email=email, password=password, recaptcha=g_recaptcha_response
+    )
 
 
 @router.post("/forgot-password")
-async def forgot_password(request: Request, db: Session = Depends(get_db)):
-    return await user_post_controller.forgotPassword(request, db)
+async def post_forgot_password(request: Request, email: str = Form(...)):
+    return await UserPostControllerInstance.forgotPassword(request, email=email)
 
 
 @router.post("/change-password")
-async def change_password(request: Request, db: Session = Depends(get_db)):
-    return await user_post_controller.changePassword(request, db)
+async def post_change_password(
+    request: Request,
+    oldPassword: str = Form(...),
+    newPassword: str = Form(...),
+):
+    return await UserPostControllerInstance.changePassword(
+        request, oldPassword=oldPassword, newPassword=newPassword
+    )
