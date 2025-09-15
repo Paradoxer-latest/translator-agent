@@ -1,0 +1,12 @@
+# unknown: express-ejs-layouts
+# unknown: google-auth-library
+# unknown: nodemon
+aiosmtplib
+authlib
+# authlib.integrations.starlette_client
+bcrypt
+fastapi
+jinja2
+python-dotenv
+sqlalchemy
+# starlette.middleware.sessions
