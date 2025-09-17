@@ -1,6 +1,6 @@
 PACKAGE_MAP = {
     "express": "fastapi",
-    "mongoose": "sqlalchemy",  # or tortoise-orm / mongoengine depending on DB
+    "mongoose": "tortoise-orm",
     "bcrypt": "bcrypt",
     "dotenv": "python-dotenv",
     "ejs": "jinja2",
